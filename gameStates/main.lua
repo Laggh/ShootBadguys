@@ -3,7 +3,7 @@ local thisState = {}
 local points
 
 function thisState.load()
-    points = 0
+    changeGameState("game")
 end 
 
 function thisState.draw()

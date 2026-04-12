@@ -3,7 +3,8 @@
         "love"
     ],
     "Lua.diagnostics.disable": [
-        "lowercase-global", 
-        "deprecated" // removes false positives from luaJIT (5.1) functions
+        "lowercase-global",
+        "deprecated",
+        "trailing-space"
     ]
 }
