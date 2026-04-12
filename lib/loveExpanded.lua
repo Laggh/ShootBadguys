@@ -50,6 +50,20 @@ function drawCentered(_Draw, _X, _Y, _R, _Sx , _Sy)
     love.graphics.draw(_Draw, _X, _Y, _R, _Sx, _Sy ,width/2, height/2)
 end
 
+---Draws an image but calculates the scale to fit a specific width and height.
+---@param _Draw any
+---@param _X number
+---@param _Y number
+---@param _R number
+---@param _Width number
+---@param _Height number
+function drawFit(_Draw, _X, _Y, _R, _Width , _Height)
+    local imgWidth, imgHeight = _Draw:getDimensions()
+    local scaleX = _Width / imgWidth
+    local scaleY = _Height / imgHeight
+    love.graphics.draw(_Draw, _X, _Y, _R, scaleX, scaleY)
+end
+
 ---Isolates a color inside a function
 ---@param _R number
 ---@param _G number

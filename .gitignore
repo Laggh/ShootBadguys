@@ -4,3 +4,4 @@
 *.exe
 Thumbs.db
 .DS_Store
+*.tiled-session

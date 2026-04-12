@@ -1,33 +1,27 @@
 local thisState = {}
+local camLib = require("lib/cam")
+local mapLib = require("lib/tilesetHandler")
+
 sin,cos = math.sin, math.cos
 
-local map = {
-    sizeX = 20,
-    sizeY = 20
-}
-for i = 1,20 do
-    map[i] = {}
-    for ii = 1,20 do
-        map[i][ii] = (i+ii*2)%5 == 0
-    end
-end
+local map = mapLib.tiledToTable("map/mapa01.json")
+print(json.encode(img.tiles.tilemap))
+local tileArr = mapLib.tilesetToArray(img.tiles.tilemap,32,32)
+
 
 
 local player = {
-    x = 20,
-    y = 20,
+    x = 0,
+    y = 0,
 }
 
+local cam = camLib.newCam({
+    isCenter = true,
+    smooth = true,
+})
 
-local cam = {
-    offX = 0,
-    offY = 0,
-    scale = 50,
-}
+local projectiles = {}
 
-local projectiles = {
-
-}
 function batchCreateProjectiles(_Amount,_X,_Y,_Dir,_Speed,_DirSpread,_SpeedSpread)
     print("batchCreateProjectiles",_Amount)
     _DirSpread = _DirSpread or 0
@@ -41,7 +35,7 @@ function batchCreateProjectiles(_Amount,_X,_Y,_Dir,_Speed,_DirSpread,_SpeedSprea
     end
 end
 function newProjectile(_X,_Y,_Dir,_Speed,_Data)
-    newProj = {
+    local newProj = {
         x = _X,
         y = _Y,
         dir = _Dir,
@@ -60,8 +54,8 @@ function drawProjectiles()
     local projectileFxSize = 1
 
     for i,v in ipairs(projectiles) do
-        x,y = toScreen(v.x,v.y)
-        x2,y2 = toScreen(
+        local x,y = toScreen(v.x,v.y)
+        local x2,y2 = toScreen(
             v.x-((cos(v.dir) * v.speed * projectileFxSize)),
             v.y-((sin(v.dir) * v.speed * projectileFxSize))
         )
@@ -72,39 +66,25 @@ function drawProjectiles()
     end 
 end
 
-function runCam()
-    w,h = love.window.getMode()
 
-    cam.offX = player.x -(w/cam.scale)/2
-    cam.offY = player.y -(h/cam.scale)/2
-end
 function toGame(x,y)
-    newX = (x/cam.scale)+cam.offX
-    newY = (y/cam.scale)+cam.offY
-    return newX,newY
+    return cam:toGame(x,y)
 end
+
 function toScreen(x,y)
-    newX = (x-cam.offX)*cam.scale
-    newY = (y-cam.offY)*cam.scale
-    return newX,newY
+    return cam:toScreen(x,y)
 end
 
 
 function drawMap()
-    for ix = 1, map.sizeX do
-        for iy = 1, map.sizeY do
-            tile = map[ix][iy]
-            local mode
-            
-            if tile == true then
-                mode = "fill"
-            else
-                mode = "line"
-            end
+    for ix = 1, map.width do
+        for iy = 1, map.height do
+            tile = map.layers[1].data2[ix][iy]
             local x,y = toScreen(ix-1,iy-1)
             local w = cam.scale
             local h = cam.scale
-            love.graphics.rectangle(mode,x,y,w,h)
+
+            drawFit(tileArr[tile],x,y,0,w,h)
         end 
     end
 end
@@ -122,7 +102,13 @@ function thisState.load()
 end 
 
 function thisState.update()
-    runCam()
+    local gmx,gmy = toGame(love.mouse.getPosition())
+    
+    cam:setTargets({
+        {x=player.x, y=player.y, weight=1},
+        {x=gmx, y=gmy, weight=0.5},
+    })
+    cam:tick()
     runProjectiles()
 end
 function thisState.draw()
@@ -134,6 +120,9 @@ function thisState.draw()
         love.graphics.line(0,300,800,300)
         love.graphics.line(400,0,400,600)    
     end)
+
+    love.graphics.print(str,10,10)
+
 end 
 
 function thisState.mousepressed(mx,my,mBtn)
