@@ -65,6 +65,11 @@ function raycastAngleOptmized(_X,_Y,_Angle,_MaxDist)
 
     return nil,nil,_MaxDist
 end
+local cam = camLib.newCam({
+    isCenter = true,
+    smooth = true,
+})
+
 
 local player = {
     health = 100,
@@ -77,7 +82,7 @@ local player = {
             projectileSpeed = 0.4,
             projectilesPerShot = 1,
             fireRate = 4,
-            spread = 0.03,
+            spread = 0.1,
             speedFactor = 1,
             canAim = true,
             isAuto = false,
@@ -89,7 +94,21 @@ local player = {
             maxBackupAmmo = 36,
         },
         {
+            name = "SMG",
+            damage = 30,
+            projectileSpeed = 0.35,
+            projectilesPerShot = 1,
+            fireRate = 12,
+            spread = 0.2,
+            speedFactor = 1,
+            canAim = true,
+            isAuto = true,
 
+            ammo = 30,
+            maxAmmo = 30,
+            reloadTime = 1.5,
+            backupAmmo = 90,
+            maxBackupAmmo = 90,
         }
     },
     x = 0,
@@ -146,7 +165,7 @@ local player = {
 
     shoot = function(self)
         if self.shootCooldown > 0 then return end
-        if self.currentAction ~= "ready" then return end
+        if not inArray(self.currentAction,{"dashing","ready"}) then return end
         if self.weapons[self.selectedWeapon].ammo <= 0 then return end
         
         local weapon = self.weapons[self.selectedWeapon]
@@ -158,6 +177,9 @@ local player = {
 
         local projectileAmount = weapon.projectilesPerShot
         local spread = weapon.spread
+
+        if self.isAiming then spread = spread * 0.5 end
+        if self.currentAction == "dashing" then spread = spread * 2 end
 
         batchCreateProjectiles(projectileAmount,self.x,self.y,angle,weapon.projectileSpeed,spread,0.05)
         self.shootCooldown = 1 / self.weapons[self.selectedWeapon].fireRate
@@ -183,12 +205,14 @@ local player = {
     tick = function(self)
         self:checkInput()
         self.shootCooldown = math.max(0,self.shootCooldown - love.timer.getDelta())
+        self.actionDuration = math.max(0,self.actionDuration - love.timer.getDelta())
+        
         if self.isGrounded then
             self.currentDashDelay = math.max(0,self.currentDashDelay - love.timer.getDelta())
             if self.currentDashDelay == 0 then
                 self.canDash = true
             end
-            if self.input.aim then 
+            if self.input.aim and self.currentAction == "ready" then 
                 self.isAiming = true
             else 
                 self.isAiming = false 
@@ -197,11 +221,13 @@ local player = {
                 self:dash()
             end
 
-            newX = self.x + self.input.move[1]*self.speed
-            newY = self.y + self.input.move[2]*self.speed
             local speed = self.speed
             if self.isAiming or self.currentAction == "reloading" then speed = speed * 0.5 end
             if self.input.move[1] == 0 and self.input.move[2] == 0 then speed = 0 end
+
+            newX = self.x + self.input.move[1]*speed
+            newY = self.y + self.input.move[2]*speed
+            
             if not checkCollision(newX,self.y) then -- só o X
                 self.x = newX
             end
@@ -209,10 +235,27 @@ local player = {
             if not checkCollision(self.x,newY) then -- só o Y
                 self.y = newY
             end
-
             
-            if self.input.shootPressed and self.shootCooldown == 0 then
-                self:shoot()
+            if self.currentAction == "ready" then
+                if self.input.weapon1 then self.selectedWeapon = 1 end
+                if self.input.weapon2 then self.selectedWeapon = 2 end
+            end
+
+            local weapon = self.weapons[self.selectedWeapon]
+            if self.currentAction == "reloading" and self.actionDuration == 0 then
+                self.currentAction = "ready"
+                local neededAmmo = weapon.maxAmmo - weapon.ammo
+                local ammoToLoad = math.min(neededAmmo, weapon.backupAmmo)
+                weapon.ammo = weapon.ammo + ammoToLoad
+                weapon.backupAmmo = weapon.backupAmmo - ammoToLoad
+            end
+
+            if self.input.reload and self.currentAction ~= "reloading" 
+                and weapon.ammo < weapon.maxAmmo 
+                and weapon.backupAmmo > 0 then
+
+                self.currentAction = "reloading"
+                self.actionDuration = weapon.reloadTime
             end
         else
             self.currentDashDuration = math.max(0,self.currentDashDuration - love.timer.getDelta())
@@ -237,13 +280,43 @@ local player = {
                 end
             end
         end
-    end
+
+        local weapon = self.weapons[self.selectedWeapon]
+        if (self.input.shootPressed or (self.input.shoot and weapon.isAuto))and self.shootCooldown == 0 then
+            self:shoot()
+        end
+    end,
+
+    draw = function(self)
+        withColor(0,0.5,1,1,function ()
+            x,y = toScreen(self.x,self.y)
+
+            love.graphics.circle("fill",x,y,cam.scale*0.2)
+        end)
+        
+        if self.isAiming then
+            withColor(1,0,0,0.8,function ()
+                local gmx,gmy = toGame(love.mouse.getPosition())
+                local angle = math.getAngle(self.x,self.y,gmx,gmy)
+                local rx,ry,dist = raycastAngleOptmized(self.x,self.y,angle,25)
+
+                if not rx and not ry then
+                    rx = self.x + cos(angle)*25
+                    ry = self.y + sin(angle)*25
+                end
+                if rx and ry then
+                    drawPx,drawPy = toScreen(self.x,self.y)
+                    drawRx,drawRy = toScreen(rx,ry)
+
+                    love.graphics.line(drawPx,drawPy,drawRx,drawRy)
+                end
+            end)
+        end
+    end,
+
 }
 
-local cam = camLib.newCam({
-    isCenter = true,
-    smooth = true,
-})
+
 
 local projectiles = {}
 
@@ -287,9 +360,14 @@ function drawProjectiles()
 
     for i,v in ipairs(projectiles) do
         local x,y = toScreen(v.x,v.y)
+
+        --efeito pra impedir a linha do tiro ficar atras do personagem qnd ele atira
+        local fxInfluence = v.speed * projectileFxSize
+        fxInfluence = math.min(fxInfluence, v.t * v.speed)
+
         local x2,y2 = toScreen(
-            v.x-((cos(v.dir) * v.speed * projectileFxSize)),
-            v.y-((sin(v.dir) * v.speed * projectileFxSize))
+            v.x-((cos(v.dir) * fxInfluence)),
+            v.y-((sin(v.dir) * fxInfluence))
         )
 
         withColor(1,1,0,1,function ()
@@ -323,15 +401,6 @@ function drawMap()
     end
 end
 
-function drawPlayer()
-    withColor(0,0.5,1,1,function ()
-        x,y = toScreen(player.x,player.y)
-
-        love.graphics.circle("line",x,y,cam.scale*0.2)
-    end)    
-end
-
-
 function thisState.load()
     thisState.resize(love.graphics.getDimensions())
 end 
@@ -341,7 +410,7 @@ function thisState.update()
     
 
     local mouseWeight = 0.5
-    if player.isAiming then mouseWeight = 2 end
+    if player.isAiming then mouseWeight = 1.2 end
     cam:setTargets({
         {x=player.x, y=player.y, weight=1},
         {x=gmx, y=gmy, weight=mouseWeight},
@@ -353,27 +422,9 @@ function thisState.update()
 end
 function thisState.draw()
     drawMap()
-    drawPlayer()
+    player:draw()
     drawProjectiles()
 
-    if player.isAiming then
-        withColor(0,1,0,0.5,function ()
-            local gmx,gmy = toGame(love.mouse.getPosition())
-            local angle = math.getAngle(player.x,player.y,gmx,gmy)
-            local rx,ry,dist = raycastAngleOptmized(player.x,player.y,angle,25)
-
-            if not rx and not ry then
-                rx = player.x + cos(angle)*25
-                ry = player.y + sin(angle)*25
-            end
-            if rx and ry then
-                drawPx,drawPy = toScreen(player.x,player.y)
-                drawRx,drawRy = toScreen(rx,ry)
-
-                love.graphics.line(drawPx,drawPy,drawRx,drawRy)
-            end
-        end)
-    end
     str = tostring(love.timer.getFPS()).."\n"
 
     str = str..string.interpolate("Input:\n move: ${move1}, ${move2}\n dash: ${dash}\n shoot: ${shoot}\n aim: ${aim}\n",{
