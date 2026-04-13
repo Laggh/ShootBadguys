@@ -6,12 +6,13 @@ local WEAPONS = require("gamestates/game/weapons")
 sin,cos = math.sin, math.cos
 local keysPressedThisFrame = {}
 
-local map = mapLib.tiledToTable("map/mapa01.json")
+local map = mapLib.tiledToTable("map/mapa01.json",true)
 map.collision = {}
 for i,v in ipairs(map.properties[1].value) do
     print("colisao",v.value)
     map.collision[i] = v.value
 end
+
 print(json.encode(img.tiles.tilemap))
 local tileArr = mapLib.tilesetToArray(img.tiles.tilemap,32,32)
 
@@ -21,12 +22,12 @@ function checkCollision(x,y)
 
     if tileX < 1 or tileY < 1 or tileX > map.width or tileY > map.height then return true end
 
-    local tile = map.layers[1].data2[tileX][tileY]
-    return inArray(tile,map.collision)
+    local tile = map.tileAt(tileX, tileY)
+    return tile ~= 0
 end
 
 
-function raycastAngleOptmized(_X,_Y,_Angle,_MaxDist)
+function raycastAngleMap(_X,_Y,_Angle,_MaxDist)
     local tileX,tileY = math.floor(_X)+1, math.floor(_Y)+1
     local sx,sy = cos(_Angle), sin(_Angle)
     local dirX = (sx > 0 and 1) or (sx < 0 and -1) or 0
@@ -48,8 +49,8 @@ function raycastAngleOptmized(_X,_Y,_Angle,_MaxDist)
     while dist <= _MaxDist do
         if tileX < 1 or tileY < 1 or tileX > map.width or tileY > map.height then return nil,nil,_MaxDist end
 
-        local tile = map.layers[1].data2[tileX][tileY]
-        if inArray(tile,map.collision) then
+        local tile = map.tileAt(tileX, tileY)
+        if tile ~= 0 then
             return _X + sx*dist, _Y + sy*dist, dist
         end
 
@@ -77,12 +78,11 @@ local player = {
 
     selectedWeapon = 1,
     weapons = {
-        WEAPONS.sawnoff,
-        WEAPONS.shotgun,
-        
+        copyOf(WEAPONS.pistol),
+        copyOf(WEAPONS.smg),
     },
-    x = 0,
-    y = 0,
+    x = 1.5,
+    y = 1.5,
     sx = 0,
     sy = 0,
     speed = 0.1,
@@ -290,10 +290,12 @@ local player = {
             local gmx,gmy = toGame(love.mouse.getPosition())
             local angle = math.getAngle(self.x,self.y,gmx,gmy)
             local spread = self:getSpread()
+
             local x1 = self.x + cos(angle - spread/2)*10.5
             local y1 = self.y + sin(angle - spread/2)*10.5
             local x2 = self.x + cos(angle + spread/2)*10.5
             local y2 = self.y + sin(angle + spread/2)*10.5
+
             local sx1,sy1 = toScreen(x1,y1)
             local sx2,sy2 = toScreen(x2,y2)
             local px,py = toScreen(self.x,self.y)
@@ -307,7 +309,7 @@ local player = {
             withColor(1,0,0,0.8,function ()
                 local gmx,gmy = toGame(love.mouse.getPosition())
                 local angle = math.getAngle(self.x,self.y,gmx,gmy)
-                local rx,ry,dist = raycastAngleOptmized(self.x,self.y,angle,25)
+                local rx,ry,dist = raycastAngleMap(self.x,self.y,angle,25)
 
                 if not rx and not ry then
                     rx = self.x + cos(angle)*25
@@ -328,6 +330,28 @@ local player = {
 
 
 local projectiles = {}
+
+local enemies = {
+    {
+        x=25,y=25,
+        size=0.6,
+        health=10000,
+        weapon = copyOf(WEAPONS.pistol),
+
+    },
+}
+
+
+function checkEnemyCollisions(x,y)
+    for i,v in ipairs(enemies) do
+        if math.getDistance(x,y,v.x,v.y) < v.size/2 then
+            return i
+        end
+    end
+    return nil
+end
+
+
 
 function batchCreateProjectiles(_Amount,_X,_Y,_Dir,_Speed,_DirSpread,_SpeedSpread,_Data)
     _DirSpread = _DirSpread or 0
@@ -362,8 +386,18 @@ function runProjectiles()
         if v.t > 300 or checkCollision(v.x,v.y) then
             table.remove(projectiles,i)
         end
+        local enemyHit = checkEnemyCollisions(v.x,v.y)
+        if enemyHit then
+            local enemy = enemies[enemyHit]
+            enemy.health = enemy.health - 10
+            if enemy.health <= 0 then
+                table.remove(enemies, enemyHit)
+            end
+            table.remove(projectiles,i)
+        end
     end
 end
+
 function drawProjectiles()
     local projectileFxSize = 1
 
@@ -383,6 +417,21 @@ function drawProjectiles()
             love.graphics.line(x,y,x2,y2)
         end)
     end 
+end
+
+function runEnemies()
+    for i,v in ipairs(enemies) do
+        
+    end
+end
+
+function drawEnemies()
+    for i,v in ipairs(enemies) do
+        local x,y = toScreen(v.x,v.y)
+        withColor(1,0,0,1,function ()
+            love.graphics.circle("fill",x,y,cam.scale*v.size/2)
+        end)
+    end
 end
 
 
@@ -412,22 +461,14 @@ end
 
 
 function drawMap()
-    for ix = 1, map.width do
-        for iy = 1, map.height do
-            tile = map.layers[1].data2[ix][iy]
-            local x,y = toScreen(ix-1,iy-1)
-            local w = cam.scale
-            local h = cam.scale
-
-            drawFit(tileArr[tile],x,y,0,w,h)
-
-            
-        end 
-    end
+    map.drawTileLayer(1,tileArr,cam)
+    map.drawTileLayer(2,tileArr,cam)
 end
 
 function thisState.load()
     thisState.resize(love.graphics.getDimensions())
+
+    print("\n\n\n",json.encode(map.getLayer(3).objects))
 end 
 
 function thisState.update()
@@ -450,6 +491,7 @@ function thisState.draw()
     player:draw()
     drawProjectiles()
     drawCrosshair()
+    drawEnemies()
     
     str = tostring(love.timer.getFPS()).."\n"
 
@@ -483,6 +525,16 @@ function thisState.draw()
         backupAmmo = player.weapons[player.selectedWeapon].backupAmmo,
         maxBackupAmmo = player.weapons[player.selectedWeapon].maxBackupAmmo,
     })
+
+    local gmx,gmy = toGame(love.mouse.getPosition())
+    str = str..string.interpolate("\nTileAtMouse: \n (${tileX},${tileY})\n collision: ${collision}\n floor:${floor}\n wall:${wall}",{
+        tileX = math.floor(gmx)+1,
+        tileY = math.floor(gmy)+1,
+        collision = tostring(checkCollision(gmx,gmy)),
+        floor = tostring(map.tileAt(1, math.floor(gmx)+1, math.floor(gmy)+1)),
+        wall = tostring(map.tileAt(2, math.floor(gmx)+1, math.floor(gmy)+1)),
+    })
+        
 
     love.graphics.print(str,10,10)
 end 

@@ -2,6 +2,7 @@ screenLib = require("lib/screen")
 json = require("lib/json")
 require("lib/loveExpanded")
 tilesetHandler = require("lib/tilesetHandler")
+require("lib/colors")
 
 love.window.updateMode(nil,nil,{vSync = false, resizable = true, msaa = 4})
 

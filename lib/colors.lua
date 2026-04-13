@@ -33,6 +33,24 @@ function HSVtoRGB(hue, saturation, value)
     return red, green, blue
 end
 
+function strToRGB(str)
+    if not str then return 1,1,1 end
+
+    if str:sub(1,1) == "#" then
+        str = str:sub(2)
+    end
+
+    if #str == 6 then
+        str = str .. "ff"
+    end
+
+
+    local r = tonumber(str:sub(1,2), 16) / 255
+    local g = tonumber(str:sub(3,4), 16) / 255
+    local b = tonumber(str:sub(5,6), 16) / 255
+    local a = tonumber(str:sub(7,8), 16) / 255
+    return r,g,b,a
+end
 if love.graphics then
     ---Sets the current drawing color using HSV values
     function love.graphics.setColorHSV(hue, saturation, value, alpha)

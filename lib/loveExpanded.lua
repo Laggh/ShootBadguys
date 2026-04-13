@@ -37,6 +37,32 @@ function inArray(_Value, _Array)
     return false
 end
 
+
+function copyOf(_Table, maxDepth, currentDepth)
+    maxDepth = maxDepth or 5
+    currentDepth = currentDepth or 0
+    if maxDepth and currentDepth >= maxDepth then
+        return _Table
+    end
+
+    local copy = {}
+    for i,v in pairs(_Table) do
+        if type(v) == "table" then
+            copy[i] = copyOf(v, maxDepth, currentDepth + 1)
+        else
+            copy[i] = v
+        end
+    end
+    return copy
+end
+
+function shallowCopyOf(_Table)
+    local copy = {}
+    for i,v in pairs(_Table) do
+        copy[i] = v
+    end
+    return copy
+end
 ---Joins multiple values into a single string.
 ---@vararg any
 ---@return string
