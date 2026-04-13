@@ -82,7 +82,11 @@ local player = {
             projectileSpeed = 0.4,
             projectilesPerShot = 1,
             fireRate = 4,
+
             spread = 0.1,
+            shotSpread = 0.1,
+            dashSpread = 0.2,
+
             speedFactor = 1,
             canAim = true,
             isAuto = false,
@@ -99,7 +103,11 @@ local player = {
             projectileSpeed = 0.35,
             projectilesPerShot = 1,
             fireRate = 12,
+
             spread = 0.2,
+            shotSpread = 0.04,
+            dashSpread = 0.2,
+
             speedFactor = 1,
             canAim = true,
             isAuto = true,
@@ -117,6 +125,15 @@ local player = {
     sy = 0,
     speed = 0.1,
 
+    spread = 0,
+    getSpread = function (self)
+        local spread = self.spread
+        local weapon = self.weapons[self.selectedWeapon]
+        if self.isAiming then spread = spread * 0.5 end
+        if self.currentAction == "dashing" then spread = spread + weapon.dashSpread end
+
+        return spread
+    end,
     shootCooldown = 0,
 
     currentAction = "ready",
@@ -176,11 +193,9 @@ local player = {
 
 
         local projectileAmount = weapon.projectilesPerShot
-        local spread = weapon.spread
 
-        if self.isAiming then spread = spread * 0.5 end
-        if self.currentAction == "dashing" then spread = spread * 2 end
-
+        self.spread = self.spread + weapon.shotSpread
+        spread = self:getSpread()
         batchCreateProjectiles(projectileAmount,self.x,self.y,angle,weapon.projectileSpeed,spread,0.05)
         self.shootCooldown = 1 / self.weapons[self.selectedWeapon].fireRate
 
@@ -206,6 +221,10 @@ local player = {
         self:checkInput()
         self.shootCooldown = math.max(0,self.shootCooldown - love.timer.getDelta())
         self.actionDuration = math.max(0,self.actionDuration - love.timer.getDelta())
+        self.spread = math.max(
+            self.weapons[self.selectedWeapon].spread, 
+            self.spread - 0.3*love.timer.getDelta()
+        )
         
         if self.isGrounded then
             self.currentDashDelay = math.max(0,self.currentDashDelay - love.timer.getDelta())
@@ -385,6 +404,20 @@ function toScreen(x,y)
     return cam:toScreen(x,y)
 end
 
+function drawCrosshair()
+    local mx,my = love.mouse.getPosition()
+    local opening = (player:getSpread()*3)^2 * 20 + 5
+    local length = 5
+
+
+    withColor(1,1,1,1,function ()
+        love.graphics.line(mx-opening-length,my,mx-opening,my)
+        love.graphics.line(mx+opening,my,mx+opening+length,my)
+        love.graphics.line(mx,my-opening-length,mx,my-opening)
+        love.graphics.line(mx,my+opening,mx,my+opening+length)
+    end)
+end
+
 
 function drawMap()
     for ix = 1, map.width do
@@ -424,7 +457,8 @@ function thisState.draw()
     drawMap()
     player:draw()
     drawProjectiles()
-
+    drawCrosshair()
+    
     str = tostring(love.timer.getFPS()).."\n"
 
     str = str..string.interpolate("Input:\n move: ${move1}, ${move2}\n dash: ${dash}\n shoot: ${shoot}\n aim: ${aim}\n",{
@@ -435,7 +469,7 @@ function thisState.draw()
         aim = tostring(player.input.aim),
     })
     local w,h = love.graphics.getDimensions()
-    str = str..string.interpolate("\nPlayer:\n x: ${x}\n y: ${y}\n sx: ${sx}\n sy: ${sy}\n isGrounded: ${isGrounded}\n isAiming: ${isAiming}\n shootCooldown: ${shootCooldown}\n action: ${action}\n",{
+    str = str..string.interpolate("\nPlayer:\n x: ${x}\n y: ${y}\n sx: ${sx}\n sy: ${sy}\n isGrounded: ${isGrounded}\n isAiming: ${isAiming}\n shootCooldown: ${shootCooldown}\n action: ${action}\n spread: ${spread}\n",{
         x = player.x,
         y = player.y,
         sx = player.sx,
@@ -444,6 +478,7 @@ function thisState.draw()
         isAiming = tostring(player.isAiming),
         shootCooldown = tostring(player.shootCooldown),
         action = player.currentAction,
+        spread = tostring(player:getSpread()),
         camScale = tostring(cam.scale),
         xTiles = tostring(w / cam.scale),
         yTiles = tostring(h / cam.scale),
