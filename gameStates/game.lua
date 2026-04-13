@@ -67,11 +67,41 @@ function raycastAngleOptmized(_X,_Y,_Angle,_MaxDist)
 end
 
 local player = {
+    health = 100,
+
+    selectedWeapon = 1,
+    weapons = {
+        {
+            name = "Pistol",
+            damage = 60,
+            projectileSpeed = 0.4,
+            projectilesPerShot = 1,
+            fireRate = 4,
+            spread = 0.03,
+            speedFactor = 1,
+            canAim = true,
+            isAuto = false,
+
+            ammo = 12,
+            maxAmmo = 12,
+            reloadTime = 1.5,
+            backupAmmo = 36,
+            maxBackupAmmo = 36,
+        },
+        {
+
+        }
+    },
     x = 0,
     y = 0,
     sx = 0,
     sy = 0,
     speed = 0.1,
+
+    shootCooldown = 0,
+
+    currentAction = "ready",
+    actionDuration = 0,
 
     canDash = true,
     dashDuration = 0.4,
@@ -82,6 +112,132 @@ local player = {
 
     isGrounded = true,
     isAiming = false,
+
+    input = {
+        move = {0,0},
+        dash = false,
+        shoot = false,
+        shootPressed = false,
+        aim = false,
+        weapon1 = false,
+        weapon2 = false,
+        reload = false,
+    },
+
+    checkInput = function(self)
+        self.input.move = {0,0}
+        if love.keyboard.isDown("w") then self.input.move[2] = self.input.move[2] - 1 end
+        if love.keyboard.isDown("s") then self.input.move[2] = self.input.move[2] + 1 end
+        if love.keyboard.isDown("a") then self.input.move[1] = self.input.move[1] - 1 end
+        if love.keyboard.isDown("d") then self.input.move[1] = self.input.move[1] + 1 end
+
+        local angle, dist = math.angleDist(0,0,self.input.move[1],self.input.move[2])
+        dist = math.min(dist,1)
+        self.input.move[1],self.input.move[2] = cos(angle)*dist, sin(angle)*dist
+
+        self.input.dash = keysPressedThisFrame["space"] == true
+        self.input.shoot = love.mouse.isDown(1)
+        self.input.shootPressed = keysPressedThisFrame["mouse1"] == true
+        self.input.aim = love.mouse.isDown(2)
+        self.input.weapon1 = keysPressedThisFrame["1"] == true
+        self.input.weapon2 = keysPressedThisFrame["2"] == true
+        self.input.reload = keysPressedThisFrame["r"] == true
+    end,
+
+    shoot = function(self)
+        if self.shootCooldown > 0 then return end
+        if self.currentAction ~= "ready" then return end
+        if self.weapons[self.selectedWeapon].ammo <= 0 then return end
+        
+        local weapon = self.weapons[self.selectedWeapon]
+        weapon.ammo = weapon.ammo - 1
+        
+        local gmx,gmy = toGame(love.mouse.getPosition())
+        local angle = math.getAngle(self.x,self.y,gmx,gmy)
+
+
+        local projectileAmount = weapon.projectilesPerShot
+        local spread = weapon.spread
+
+        batchCreateProjectiles(projectileAmount,self.x,self.y,angle,weapon.projectileSpeed,spread,0.05)
+        self.shootCooldown = 1 / self.weapons[self.selectedWeapon].fireRate
+
+    end,
+
+    dash = function(self)
+        if self.canDash then
+            self.currentAction = "dashing"
+            self.canDash = false
+            self.isGrounded = false
+            self.isAiming = false
+            self.currentDashDuration = self.dashDuration
+            self.currentDashDelay = self.dashDelay
+
+            gmx,gmy = toGame(love.mouse.getPosition())
+            local angle = math.getAngle(self.x,self.y,gmx,gmy)
+            self.sx = cos(angle)*self.dashSpeed
+            self.sy = sin(angle)*self.dashSpeed
+        end
+    end,
+
+    tick = function(self)
+        self:checkInput()
+        self.shootCooldown = math.max(0,self.shootCooldown - love.timer.getDelta())
+        if self.isGrounded then
+            self.currentDashDelay = math.max(0,self.currentDashDelay - love.timer.getDelta())
+            if self.currentDashDelay == 0 then
+                self.canDash = true
+            end
+            if self.input.aim then 
+                self.isAiming = true
+            else 
+                self.isAiming = false 
+            end
+            if self.input.dash then
+                self:dash()
+            end
+
+            newX = self.x + self.input.move[1]*self.speed
+            newY = self.y + self.input.move[2]*self.speed
+            local speed = self.speed
+            if self.isAiming or self.currentAction == "reloading" then speed = speed * 0.5 end
+            if self.input.move[1] == 0 and self.input.move[2] == 0 then speed = 0 end
+            if not checkCollision(newX,self.y) then -- só o X
+                self.x = newX
+            end
+        
+            if not checkCollision(self.x,newY) then -- só o Y
+                self.y = newY
+            end
+
+            
+            if self.input.shootPressed and self.shootCooldown == 0 then
+                self:shoot()
+            end
+        else
+            self.currentDashDuration = math.max(0,self.currentDashDuration - love.timer.getDelta())
+            if self.currentDashDuration == 0 then
+                self.currentAction = "ready"
+                self.isGrounded = true
+                self.sx = 0
+                self.sy = 0
+            else
+                self.sx = self.sx * 0.98
+                self.sy = self.sy * 0.98
+
+                local newX = self.x + self.sx
+                local newY = self.y + self.sy
+
+                if not checkCollision(newX,self.y) then -- só o X
+                    self.x = newX
+                end
+            
+                if not checkCollision(self.x,newY) then -- só o Y
+                    self.y = newY
+                end
+            end
+        end
+    end
 }
 
 local cam = camLib.newCam({
@@ -91,7 +247,7 @@ local cam = camLib.newCam({
 
 local projectiles = {}
 
-function batchCreateProjectiles(_Amount,_X,_Y,_Dir,_Speed,_DirSpread,_SpeedSpread)
+function batchCreateProjectiles(_Amount,_X,_Y,_Dir,_Speed,_DirSpread,_SpeedSpread,_Data)
     _DirSpread = _DirSpread or 0
     _SpeedSpread = _SpeedSpread or 0
 
@@ -99,7 +255,7 @@ function batchCreateProjectiles(_Amount,_X,_Y,_Dir,_Speed,_DirSpread,_SpeedSprea
         local dir = _Dir + (math.random()-0.5)*_DirSpread
         local speed = _Speed + (math.random()-0.5)*_SpeedSpread
 
-        newProjectile(_X,_Y,dir,speed)
+        newProjectile(_X,_Y,dir,speed,_Data)
     end
 end
 function newProjectile(_X,_Y,_Dir,_Speed,_Data)
@@ -175,77 +331,9 @@ function drawPlayer()
     end)    
 end
 
-function runPlayer()
-    if player.isGrounded then
-        player.currentDashDelay = math.max(0,player.currentDashDelay - love.timer.getDelta())
-        if player.currentDashDelay == 0 then
-            player.canDash = true
-        end
-
-        local walkVec = {0,0}
-
-        if love.mouse.isDown(2) 
-        then player.isAiming = true
-        else player.isAiming = false end
-        if love.keyboard.isDown("w") then walkVec[2] = walkVec[2] - 1 end
-        if love.keyboard.isDown("s") then walkVec[2] = walkVec[2] + 1 end
-        if love.keyboard.isDown("a") then walkVec[1] = walkVec[1] - 1 end
-        if love.keyboard.isDown("d") then walkVec[1] = walkVec[1] + 1 end
-        if keysPressedThisFrame["space"] and player.canDash then
-            player.canDash = false
-            player.isGrounded = false
-            player.isAiming = false
-            player.currentDashDuration = player.dashDuration
-            player.currentDashDelay = player.dashDelay
-
-            gmx,gmy = toGame(love.mouse.getPosition())
-            local angle = math.getAngle(player.x,player.y,gmx,gmy)
-            player.sx = cos(angle)*player.dashSpeed
-            player.sy = sin(angle)*player.dashSpeed
-        end
-
-
-
-
-        local angle = math.getAngle(0,0,walkVec[1],walkVec[2])
-        local speed = player.speed
-        if player.isAiming then speed = speed * 0.5 end
-        if walkVec[1] == 0 and walkVec[2] == 0 then speed = 0 end
-        local newX = player.x + cos(angle)*speed
-        local newY = player.y + sin(angle)*speed
-        if not checkCollision(newX,player.y) then -- só o X
-            player.x = newX
-        end
-    
-        if not checkCollision(player.x,newY) then -- só o Y
-            player.y = newY
-        end
-    else
-        player.currentDashDuration = math.max(0,player.currentDashDuration - love.timer.getDelta())
-        if player.currentDashDuration == 0 then
-            player.isGrounded = true
-            player.sx = 0
-            player.sy = 0
-        else
-            player.sx = player.sx * 0.98
-            player.sy = player.sy * 0.98
-
-            local newX = player.x + player.sx
-            local newY = player.y + player.sy
-
-            if not checkCollision(newX,player.y) then -- só o X
-                player.x = newX
-            end
-        
-            if not checkCollision(player.x,newY) then -- só o Y
-                player.y = newY
-            end
-        end
-    end
-end
 
 function thisState.load()
-
+    thisState.resize(love.graphics.getDimensions())
 end 
 
 function thisState.update()
@@ -260,7 +348,7 @@ function thisState.update()
     })
     cam:tick()
     runProjectiles()
-    runPlayer()
+    player:tick()
     keysPressedThisFrame = {}
 end
 function thisState.draw()
@@ -286,19 +374,46 @@ function thisState.draw()
             end
         end)
     end
+    str = tostring(love.timer.getFPS()).."\n"
+
+    str = str..string.interpolate("Input:\n move: ${move1}, ${move2}\n dash: ${dash}\n shoot: ${shoot}\n aim: ${aim}\n",{
+        move1 = player.input.move[1],
+        move2 = player.input.move[2],
+        dash = tostring(player.input.dash),
+        shoot = tostring(player.input.shoot),
+        aim = tostring(player.input.aim),
+    })
+    local w,h = love.graphics.getDimensions()
+    str = str..string.interpolate("\nPlayer:\n x: ${x}\n y: ${y}\n sx: ${sx}\n sy: ${sy}\n isGrounded: ${isGrounded}\n isAiming: ${isAiming}\n shootCooldown: ${shootCooldown}\n action: ${action}\n",{
+        x = player.x,
+        y = player.y,
+        sx = player.sx,
+        sy = player.sy,
+        isGrounded = tostring(player.isGrounded),
+        isAiming = tostring(player.isAiming),
+        shootCooldown = tostring(player.shootCooldown),
+        action = player.currentAction,
+        camScale = tostring(cam.scale),
+        xTiles = tostring(w / cam.scale),
+        yTiles = tostring(h / cam.scale),
+    })
+
+    str = str..string.interpolate("\nWeapons:\n selected: ${selected}\n ammo: ${ammo}/${maxAmmo}\n backupAmmo: ${backupAmmo}/${maxBackupAmmo}",{
+        selected = player.weapons[player.selectedWeapon].name,
+        ammo = player.weapons[player.selectedWeapon].ammo,
+        maxAmmo = player.weapons[player.selectedWeapon].maxAmmo,
+        backupAmmo = player.weapons[player.selectedWeapon].backupAmmo,
+        maxBackupAmmo = player.weapons[player.selectedWeapon].maxBackupAmmo,
+    })
+
+    love.graphics.print(str,10,10)
 end 
 
 function thisState.mousepressed(mx,my,mBtn)
-
-
-    if mBtn == 1 then
-        gmx,gmy = toGame(mx,my)
-        batchCreateProjectiles(30,player.x,player.y,math.getAngle(player.x,player.y,gmx,gmy),0.2,0.2,0.2)
-    end
-
     if mBtn == 3 then
         player.x,player.y = toGame(mx,my)
     end
+    keysPressedThisFrame["mouse"..mBtn] = true
 end
 
 function thisState.keypressed(key)
@@ -309,4 +424,12 @@ function thisState.keypressed(key)
     keysPressedThisFrame[key] = true
 end
 
+function thisState.resize(w,h)
+    local min = math.min(w,h)
+    local max = math.max(w,h)
+
+    cam.scale = (min / 15) + ((max - min) / 15)*0.5
+
+    
+end
 return thisState

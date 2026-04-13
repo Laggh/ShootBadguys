@@ -115,6 +115,11 @@ function math.getDistance(_X1,_Y1,_X2,_Y2)
     return math.sqrt((_X2-_X1)^2 + (_Y2-_Y1)^2)
 end
 
+function math.angleDist(_X1,_Y1,_X2,_Y2)
+    local angle = math.getAngle(_X1,_Y1,_X2,_Y2)
+    local dist = math.getDistance(_X1,_Y1,_X2,_Y2)
+    return angle,dist
+end
 collision = {}
 ---Checks if a point is inside a rectangle
 ---@param _X1 number
