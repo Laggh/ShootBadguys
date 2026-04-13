@@ -93,7 +93,7 @@ local player = {
 
             ammo = 12,
             maxAmmo = 12,
-            reloadTime = 1.5,
+            reloadTime = 0.5,
             backupAmmo = 36,
             maxBackupAmmo = 36,
         },
@@ -105,16 +105,16 @@ local player = {
             fireRate = 12,
 
             spread = 0.2,
-            shotSpread = 0.04,
+            shotSpread = 0.08,
             dashSpread = 0.2,
 
             speedFactor = 1,
             canAim = true,
             isAuto = true,
 
-            ammo = 30,
+            ammo = 3000,
             maxAmmo = 30,
-            reloadTime = 1.5,
+            reloadTime = 0.7,
             backupAmmo = 90,
             maxBackupAmmo = 90,
         }
@@ -211,7 +211,12 @@ local player = {
             self.currentDashDelay = self.dashDelay
 
             gmx,gmy = toGame(love.mouse.getPosition())
-            local angle = math.getAngle(self.x,self.y,gmx,gmy)
+            local angle
+            if self.input.move[1] == 0 and self.input.move[2] == 0 then
+                angle = math.getAngle(self.x,self.y,gmx,gmy)
+            else
+                angle = math.getAngle(0,0,self.input.move[1],self.input.move[2])
+            end
             self.sx = cos(angle)*self.dashSpeed
             self.sy = sin(angle)*self.dashSpeed
         end
@@ -219,12 +224,15 @@ local player = {
 
     tick = function(self)
         self:checkInput()
+        weapon = self.weapons[self.selectedWeapon]
         self.shootCooldown = math.max(0,self.shootCooldown - love.timer.getDelta())
         self.actionDuration = math.max(0,self.actionDuration - love.timer.getDelta())
         self.spread = math.max(
-            self.weapons[self.selectedWeapon].spread, 
-            self.spread - 0.3*love.timer.getDelta()
+            weapon.spread, 
+            self.spread - 0.5*love.timer.getDelta() - (self.spread > 0.6 and 0.2 or 0)*love.timer.getDelta()
         )
+
+      
         
         if self.isGrounded then
             self.currentDashDelay = math.max(0,self.currentDashDelay - love.timer.getDelta())
@@ -260,7 +268,6 @@ local player = {
                 if self.input.weapon2 then self.selectedWeapon = 2 end
             end
 
-            local weapon = self.weapons[self.selectedWeapon]
             if self.currentAction == "reloading" and self.actionDuration == 0 then
                 self.currentAction = "ready"
                 local neededAmmo = weapon.maxAmmo - weapon.ammo
@@ -313,6 +320,24 @@ local player = {
             love.graphics.circle("fill",x,y,cam.scale*0.2)
         end)
         
+        --debug spread 
+        withColor(0.5,0.5,0.5,0.5, function ()
+            local gmx,gmy = toGame(love.mouse.getPosition())
+            local angle = math.getAngle(self.x,self.y,gmx,gmy)
+            local spread = self:getSpread()
+            local x1 = self.x + cos(angle - spread/2)*10.5
+            local y1 = self.y + sin(angle - spread/2)*10.5
+            local x2 = self.x + cos(angle + spread/2)*10.5
+            local y2 = self.y + sin(angle + spread/2)*10.5
+            local sx1,sy1 = toScreen(x1,y1)
+            local sx2,sy2 = toScreen(x2,y2)
+            local px,py = toScreen(self.x,self.y)
+
+            love.graphics.line(px,py,sx1,sy1)
+            love.graphics.line(x,y,sx2,sy2)
+        end)
+
+
         if self.isAiming then
             withColor(1,0,0,0.8,function ()
                 local gmx,gmy = toGame(love.mouse.getPosition())
@@ -406,7 +431,7 @@ end
 
 function drawCrosshair()
     local mx,my = love.mouse.getPosition()
-    local opening = (player:getSpread()*3)^2 * 20 + 5
+    local opening = (player:getSpread()*2)^3 * 20 + 5
     local length = 5
 
 
