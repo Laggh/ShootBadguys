@@ -140,9 +140,9 @@ local player = {
     actionDuration = 0,
 
     canDash = true,
-    dashDuration = 0.4,
-    dashDelay = 1.4,
-    dashSpeed = 0.2,
+    dashDuration = 0.25,
+    dashDelay = 1,
+    dashSpeed = 0.18,
     currentDashDuration = 0,
     currentDashDelay = 0,
 
@@ -227,18 +227,22 @@ local player = {
         weapon = self.weapons[self.selectedWeapon]
         self.shootCooldown = math.max(0,self.shootCooldown - love.timer.getDelta())
         self.actionDuration = math.max(0,self.actionDuration - love.timer.getDelta())
+        self.currentDashDelay = math.max(0,self.currentDashDelay - love.timer.getDelta())
         self.spread = math.max(
             weapon.spread, 
             self.spread - 0.5*love.timer.getDelta() - (self.spread > 0.6 and 0.2 or 0)*love.timer.getDelta()
         )
 
-      
+        if self.currentDashDelay == 0 then self.canDash = true end
         
+        if self.currentAction == "ready" then
+            if self.input.weapon1 then self.selectedWeapon = 1 end
+            if self.input.weapon2 then self.selectedWeapon = 2 end
+        end
+
         if self.isGrounded then
-            self.currentDashDelay = math.max(0,self.currentDashDelay - love.timer.getDelta())
-            if self.currentDashDelay == 0 then
-                self.canDash = true
-            end
+            self.sx = 0
+            self.sy = 0
             if self.input.aim and self.currentAction == "ready" then 
                 self.isAiming = true
             else 
@@ -252,22 +256,9 @@ local player = {
             if self.isAiming or self.currentAction == "reloading" then speed = speed * 0.5 end
             if self.input.move[1] == 0 and self.input.move[2] == 0 then speed = 0 end
 
-            newX = self.x + self.input.move[1]*speed
-            newY = self.y + self.input.move[2]*speed
+            self.sx = (self.sx + self.input.move[1]*speed)
+            self.sy = (self.sy + self.input.move[2]*speed)
             
-            if not checkCollision(newX,self.y) then -- só o X
-                self.x = newX
-            end
-        
-            if not checkCollision(self.x,newY) then -- só o Y
-                self.y = newY
-            end
-            
-            if self.currentAction == "ready" then
-                if self.input.weapon1 then self.selectedWeapon = 1 end
-                if self.input.weapon2 then self.selectedWeapon = 2 end
-            end
-
             if self.currentAction == "reloading" and self.actionDuration == 0 then
                 self.currentAction = "ready"
                 local neededAmmo = weapon.maxAmmo - weapon.ammo
@@ -284,6 +275,9 @@ local player = {
                 self.actionDuration = weapon.reloadTime
             end
         else
+            self.sx = self.sx * 0.99
+            self.sy = self.sy * 0.99
+
             self.currentDashDuration = math.max(0,self.currentDashDuration - love.timer.getDelta())
             if self.currentDashDuration == 0 then
                 self.currentAction = "ready"
@@ -291,20 +285,18 @@ local player = {
                 self.sx = 0
                 self.sy = 0
             else
-                self.sx = self.sx * 0.98
-                self.sy = self.sy * 0.98
 
-                local newX = self.x + self.sx
-                local newY = self.y + self.sy
-
-                if not checkCollision(newX,self.y) then -- só o X
-                    self.x = newX
-                end
-            
-                if not checkCollision(self.x,newY) then -- só o Y
-                    self.y = newY
-                end
             end
+        end
+
+        newX = self.x + self.sx
+        newY = self.y + self.sy
+        if not checkCollision(newX,self.y) then -- só o X
+            self.x = newX
+        end
+    
+        if not checkCollision(self.x,newY) then -- só o Y
+            self.y = newY
         end
 
         local weapon = self.weapons[self.selectedWeapon]
