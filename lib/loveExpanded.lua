@@ -30,6 +30,13 @@ function inLimits(_Value,_Min,_Max)
     return true
 end
 
+function inArray(_Value, _Array)
+    for i,v in ipairs(_Array) do
+        if v == _Value then return true end
+    end
+    return false
+end
+
 ---Joins multiple values into a single string.
 ---@vararg any
 ---@return string
@@ -58,6 +65,7 @@ end
 ---@param _Width number
 ---@param _Height number
 function drawFit(_Draw, _X, _Y, _R, _Width , _Height)
+    if not _Draw then return end
     local imgWidth, imgHeight = _Draw:getDimensions()
     local scaleX = _Width / imgWidth
     local scaleY = _Height / imgHeight
@@ -75,6 +83,15 @@ function withColor(_R,_G,_B,_A,_Function)
     love.graphics.setColor(_R,_G,_B,_A)
     _Function()
     love.graphics.setColor(r,g,b,a)
+end
+
+---Gets the sign of a number.
+---@param _Value number
+---@return number
+function math.sign(_Value)
+    if _Value > 0 then return 1 end
+    if _Value < 0 then return -1 end
+    return 0
 end
 
 ---Gets the angle difference of 2 points
