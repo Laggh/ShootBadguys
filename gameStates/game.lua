@@ -24,25 +24,6 @@ function checkCollision(x,y)
     return inArray(tile,map.collision)
 end
 
-function raycastAngle(_X,_Y,_Angle,_MaxDist)
-    local step = 0.01
-    local dist = 0
-    local x,y = _X, _Y
-    
-
-    while dist < _MaxDist do
-        x = x + cos(_Angle)*dist
-        y = y + sin(_Angle)*dist
-
-        if checkCollision(x,y) then
-            return x,y,dist
-        end
-
-        dist = dist + step
-    end
-
-    return nil,nil,_MaxDist
-end
 
 function raycastAngleOptmized(_X,_Y,_Angle,_MaxDist)
     local tileX,tileY = math.floor(_X)+1, math.floor(_Y)+1
@@ -93,9 +74,9 @@ local player = {
     speed = 0.1,
 
     canDash = true,
-    dashDuration = 0.5,
+    dashDuration = 0.4,
     dashDelay = 1.4,
-    dashSpeed = 0.15,
+    dashSpeed = 0.2,
     currentDashDuration = 0,
     currentDashDelay = 0,
 
