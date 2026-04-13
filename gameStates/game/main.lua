@@ -86,6 +86,7 @@ local player = {
             spread = 0.1,
             shotSpread = 0.1,
             dashSpread = 0.2,
+            movementSpread = 0.05,
 
             speedFactor = 1,
             canAim = true,
@@ -105,8 +106,9 @@ local player = {
             fireRate = 12,
 
             spread = 0.2,
-            shotSpread = 0.08,
+            shotSpread = 0.10,
             dashSpread = 0.2,
+            movementSpread = 0.03,
 
             speedFactor = 1,
             canAim = true,
@@ -129,8 +131,12 @@ local player = {
     getSpread = function (self)
         local spread = self.spread
         local weapon = self.weapons[self.selectedWeapon]
+        local speed = math.getDistance(self.sx,self.sy,0,0)
+
+        spread = spread + speed * weapon.movementSpread
         if self.isAiming then spread = spread * 0.5 end
         if self.currentAction == "dashing" then spread = spread + weapon.dashSpread end
+        
 
         return spread
     end,
@@ -193,8 +199,13 @@ local player = {
 
 
         local projectileAmount = weapon.projectilesPerShot
+        
+        local movementInfluence = math.getDistance(self.input.move[1],self.input.move[2],0,0) * weapon.movementSpread
+        local isMoving = movementInfluence > 0
 
-        self.spread = self.spread + weapon.shotSpread
+        self.spread = self.spread + (weapon.shotSpread * (1 + movementInfluence))
+        if isMoving then self.spread = self.spread + weapon.movementSpread end
+
         spread = self:getSpread()
         batchCreateProjectiles(projectileAmount,self.x,self.y,angle,weapon.projectileSpeed,spread,0.05)
         self.shootCooldown = 1 / self.weapons[self.selectedWeapon].fireRate
@@ -230,7 +241,9 @@ local player = {
         self.currentDashDelay = math.max(0,self.currentDashDelay - love.timer.getDelta())
         self.spread = math.max(
             weapon.spread, 
-            self.spread - 0.5*love.timer.getDelta() - (self.spread > 0.6 and 0.2 or 0)*love.timer.getDelta()
+            self.spread - 0.8*love.timer.getDelta() 
+                - (self.spread > 0.6 and 0.6 or 0.1)*love.timer.getDelta() 
+                - (self.isAiming and 0.1 or 0)*love.timer.getDelta()
         )
 
         if self.currentDashDelay == 0 then self.canDash = true end
@@ -253,7 +266,7 @@ local player = {
             end
 
             local speed = self.speed
-            if self.isAiming or self.currentAction == "reloading" then speed = speed * 0.5 end
+            if self.isAiming or self.currentAction == "reloading" then speed = speed * 0.2 end
             if self.input.move[1] == 0 and self.input.move[2] == 0 then speed = 0 end
 
             self.sx = (self.sx + self.input.move[1]*speed)
@@ -423,7 +436,9 @@ end
 
 function drawCrosshair()
     local mx,my = love.mouse.getPosition()
-    local opening = (player:getSpread()*2)^3 * 20 + 5
+    local opening = (player:getSpread()*3)^3 * 15 + 3
+    if player:getSpread() < 0.1 then opening = 1 end
+
     local length = 5
 
 
