@@ -1,6 +1,7 @@
 local thisState = {}
 local camLib = require("lib/cam")
 local mapLib = require("lib/tilesetHandler")
+local WEAPONS = require("gamestates/game/weapons")
 
 sin,cos = math.sin, math.cos
 local keysPressedThisFrame = {}
@@ -76,50 +77,9 @@ local player = {
 
     selectedWeapon = 1,
     weapons = {
-        {
-            name = "Pistol",
-            damage = 60,
-            projectileSpeed = 0.4,
-            projectilesPerShot = 1,
-            fireRate = 4,
-
-            spread = 0.1,
-            shotSpread = 0.1,
-            dashSpread = 0.2,
-            movementSpread = 0.05,
-
-            speedFactor = 1,
-            canAim = true,
-            isAuto = false,
-
-            ammo = 12,
-            maxAmmo = 12,
-            reloadTime = 0.5,
-            backupAmmo = 36,
-            maxBackupAmmo = 36,
-        },
-        {
-            name = "SMG",
-            damage = 30,
-            projectileSpeed = 0.35,
-            projectilesPerShot = 1,
-            fireRate = 12,
-
-            spread = 0.2,
-            shotSpread = 0.10,
-            dashSpread = 0.2,
-            movementSpread = 0.03,
-
-            speedFactor = 1,
-            canAim = true,
-            isAuto = true,
-
-            ammo = 3000,
-            maxAmmo = 30,
-            reloadTime = 0.7,
-            backupAmmo = 90,
-            maxBackupAmmo = 90,
-        }
+        WEAPONS.sawnoff,
+        WEAPONS.shotgun,
+        
     },
     x = 0,
     y = 0,
@@ -228,8 +188,8 @@ local player = {
             else
                 angle = math.getAngle(0,0,self.input.move[1],self.input.move[2])
             end
-            self.sx = cos(angle)*self.dashSpeed
-            self.sy = sin(angle)*self.dashSpeed
+            self.sx = cos(angle)*self.dashSpeed*(self.weapons[self.selectedWeapon].speedFactor or 1)
+            self.sy = sin(angle)*self.dashSpeed*(self.weapons[self.selectedWeapon].speedFactor or 1)
         end
     end,
 
@@ -265,7 +225,7 @@ local player = {
                 self:dash()
             end
 
-            local speed = self.speed
+            local speed = self.speed * (weapon.speedFactor or 1)
             if self.isAiming or self.currentAction == "reloading" then speed = speed * 0.2 end
             if self.input.move[1] == 0 and self.input.move[2] == 0 then speed = 0 end
 
