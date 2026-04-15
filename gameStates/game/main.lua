@@ -170,7 +170,11 @@ player = {
         if isMoving then self.spread = self.spread + weapon.movementSpread end
 
         spread = self:getSpread()
-        batchCreateProjectiles(projectileAmount,self.x,self.y,angle,weapon.projectileSpeed,spread,0.05)
+        local projectileData = {
+            team = "player",
+            damage = weapon.damage,
+        }
+        batchCreateProjectiles(projectileAmount,self.x,self.y,angle,weapon.projectileSpeed,spread,0.05,projectileData)
         self.shootCooldown = 1 / self.weapons[self.selectedWeapon].fireRate
 
     end,
@@ -373,7 +377,8 @@ function newProjectile(_X,_Y,_Dir,_Speed,_Data)
         y = _Y,
         dir = _Dir,
         speed = _Speed,
-        t = 0
+        t = 0,
+        data = _Data or {},
     }
 
     table.insert(projectiles,newProj)
@@ -392,7 +397,7 @@ function runProjectiles()
         local enemyHit = checkEnemyCollisions(v.x,v.y)
         if enemyHit then
             local enemy = enemies[enemyHit]
-            enemy.health = enemy.health - 10
+            enemy.health = enemy.health - v.data.damage
             if enemy.health <= 0 then
                 table.remove(enemies, enemyHit)
             end
@@ -423,7 +428,7 @@ function drawProjectiles()
 end
 
 function loadEnemies()
-    for i,v in ipairs(map:getLayer(3).objects) do
+    for i,v in ipairs(map:searchForObject(3,"enemy",true)) do
         if v.type == "enemy" then
             table.insert(enemies,{
                 x = v.x/32,

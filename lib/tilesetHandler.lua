@@ -90,10 +90,10 @@ function API.tiledToTable(file,doAddFunctions)
     end
 
     local file = love.filesystem.read(file)
-    local table = json.decode(file)
+    local mapTable = json.decode(file)
 
-    table.properties = _collapseArrayProperties(table.properties)
-    for i,v in ipairs(table.layers) do
+    mapTable.properties = _collapseArrayProperties(mapTable.properties)
+    for i,v in ipairs(mapTable.layers) do
         if v.type == "tilelayer" then
 
             v.tiles = {} --data but in a 2d table instead of a 1d table
@@ -120,7 +120,7 @@ function API.tiledToTable(file,doAddFunctions)
     end
 
     if doAddFunctions then
-        table.getLayer = function(self, nameOrId)
+        mapTable.getLayer = function(self, nameOrId)
             if type(nameOrId) == "number" then
                 return self.layers[nameOrId]
             end
@@ -132,7 +132,7 @@ function API.tiledToTable(file,doAddFunctions)
             return nil
         end
 
-        table.drawTileLayer = function(self, layer, tileImages, cam)
+        mapTable.drawTileLayer = function(self, layer, tileImages, cam)
             local toScreen
             if cam then
                 toScreen = function(x,y)
@@ -167,7 +167,7 @@ function API.tiledToTable(file,doAddFunctions)
             end)
         end
 
-        table.tileAt = function(self, layerOrX, x, y)
+        mapTable.tileAt = function(self, layerOrX, x, y)
             local layer = layerOrX
 
             if y == nil then
@@ -191,7 +191,7 @@ function API.tiledToTable(file,doAddFunctions)
             return layer.tiles[y][x]
         end
 
-        table.searchForObject = function(self, layer, typeOrId, doReturnAll)
+        mapTable.searchForObject = function(self, layer, typeOrId, doReturnAll)
             doReturnAll = doReturnAll or false
             local layerObj = self:getLayer(layer)
             if not layerObj or layerObj.type ~= "objectgroup" then
@@ -216,7 +216,7 @@ function API.tiledToTable(file,doAddFunctions)
     end
 
 
-    return table
+    return mapTable
 end
 
 return API

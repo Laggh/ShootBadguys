@@ -232,33 +232,17 @@
          "name":"Entidades",
          "objects":[
                 {
-                 "height":0,
                  "id":16,
-                 "name":"enemy",
                  "opacity":1,
-                 "point":true,
-                 "properties":[
-                        {
-                         "name":"health",
-                         "type":"int",
-                         "value":100
-                        }, 
-                        {
-                         "name":"weapon",
-                         "type":"string",
-                         "value":"pistol"
-                        }],
-                 "rotation":0,
+                 "template":"enemy.tx",
                  "type":"enemy",
-                 "visible":true,
-                 "width":0,
                  "x":300.5,
                  "y":92.5
                 }, 
                 {
                  "height":0,
                  "id":24,
-                 "name":"",
+                 "name":"playerStart",
                  "opacity":1,
                  "point":true,
                  "rotation":0,
@@ -267,6 +251,46 @@
                  "width":0,
                  "x":451,
                  "y":163
+                }, 
+                {
+                 "id":32,
+                 "opacity":1,
+                 "template":"enemy.tx",
+                 "type":"enemy",
+                 "x":370,
+                 "y":24.5
+                }, 
+                {
+                 "id":33,
+                 "opacity":1,
+                 "template":"enemy.tx",
+                 "type":"enemy",
+                 "x":389.5,
+                 "y":72.5
+                }, 
+                {
+                 "id":34,
+                 "opacity":1,
+                 "template":"enemy.tx",
+                 "type":"enemy",
+                 "x":328.5,
+                 "y":51.5
+                }, 
+                {
+                 "id":35,
+                 "opacity":1,
+                 "template":"enemy.tx",
+                 "type":"enemy",
+                 "x":452,
+                 "y":51.5
+                }, 
+                {
+                 "id":36,
+                 "opacity":1,
+                 "template":"enemy.tx",
+                 "type":"enemy",
+                 "x":372.5,
+                 "y":97
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -275,7 +299,7 @@
          "y":0
         }],
  "nextlayerid":7,
- "nextobjectid":25,
+ "nextobjectid":37,
  "orientation":"orthogonal",
  "properties":[
         {
