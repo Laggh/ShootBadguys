@@ -239,54 +239,9 @@
                  "point":true,
                  "properties":[
                         {
-                         "name":"arr",
-                         "type":"list",
-                         "value":[
-                                {
-                                 "type":"int",
-                                 "value":0
-                                }, 
-                                {
-                                 "type":"int",
-                                 "value":2
-                                }, 
-                                {
-                                 "type":"int",
-                                 "value":0
-                                }, 
-                                {
-                                 "type":"list",
-                                 "value":[
-                                        {
-                                         "type":"bool",
-                                         "value":false
-                                        }]
-                                }]
-                        }, 
-                        {
-                         "name":"b",
-                         "type":"bool",
-                         "value":false
-                        }, 
-                        {
-                         "name":"c",
-                         "type":"color",
-                         "value":"#ff55ffff"
-                        }, 
-                        {
-                         "name":"f",
-                         "type":"float",
-                         "value":0
-                        }, 
-                        {
                          "name":"health",
                          "type":"int",
                          "value":100
-                        }, 
-                        {
-                         "name":"str",
-                         "type":"string",
-                         "value":""
                         }, 
                         {
                          "name":"weapon",
@@ -311,7 +266,7 @@
  "orientation":"orthogonal",
  "properties":[
         {
-         "name":"collisionTiles",
+         "name":"collision",
          "type":"list",
          "value":[
                 {

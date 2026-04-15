@@ -69,6 +69,15 @@ local function _collapseProperty(property)
     end
 end
 
+local function _collapseArrayProperties(properties)
+    local collapsed = {}
+    for i,v in ipairs(properties) do
+        local name, value = _collapseProperty(v)
+        collapsed[name] = value
+    end
+    return collapsed
+end
+
 -- Transform a .tmj file into a and creates a table with the data called 'data2', the data is in the format 'data[y][x]'
 -- (file) -> table
 function API.tiledToTable(file,doAddFunctions)
@@ -82,6 +91,7 @@ function API.tiledToTable(file,doAddFunctions)
     local file = love.filesystem.read(file)
     local table = json.decode(file)
 
+    table.properties = _collapseArrayProperties(table.properties)
     for i,v in ipairs(table.layers) do
         if v.type == "tilelayer" then
 
@@ -95,21 +105,20 @@ function API.tiledToTable(file,doAddFunctions)
         end
         if v.type == "objectgroup" then
             --print("Object group found, skipping for now",v.name)
+
             for ii,vv in ipairs(v.objects) do
-                for iii,vvv in ipairs(vv.properties) do
-                    local name, value = _collapseProperty(vvv)
-                    vv[name] = value
-                end
+                vv.data = copyOf(vv.properties)
+                vv.properties = _collapseArrayProperties(vv.properties)
             end
         end
     end
 
     if doAddFunctions then
-        table.getLayer = function(nameOrId)
+        table.getLayer = function(self, nameOrId)
             if type(nameOrId) == "number" then
-                return table.layers[nameOrId]
+                return self.layers[nameOrId]
             end
-            for i,v in ipairs(table.layers) do
+            for i,v in ipairs(self.layers) do
                 if v.name == nameOrId then
                     return v
                 end
@@ -117,7 +126,7 @@ function API.tiledToTable(file,doAddFunctions)
             return nil
         end
 
-        table.drawTileLayer = function(layer, tileImages, cam)
+        table.drawTileLayer = function(self, layer, tileImages, cam)
             local toScreen
             if cam then
                 toScreen = function(x,y)
@@ -129,7 +138,7 @@ function API.tiledToTable(file,doAddFunctions)
                 end
             end
             if type(layer) ~= "table" then
-                layer = table.getLayer(layer)
+                layer = self:getLayer(layer)
             end
             if not layer then
                 error(strJoin("Layer not found: ", layer))
@@ -152,17 +161,17 @@ function API.tiledToTable(file,doAddFunctions)
             end)
         end
 
-        table.tileAt = function(layerOrX, x, y)
+        table.tileAt = function(self, layerOrX, x, y)
             local layer = layerOrX
 
             if y == nil then
                 y = x
                 x = layerOrX
-                layer = table.getLayer(2)
+                layer = self:getLayer(2)
             elseif type(layerOrX) ~= "table" and type(layerOrX) ~= "number" then
-                layer = table.getLayer(2)
+                layer = self:getLayer(2)
             elseif type(layerOrX) == "number" and x and y then
-                layer = table.getLayer(layerOrX)
+                layer = self:getLayer(layerOrX)
             end
 
             if not layer then

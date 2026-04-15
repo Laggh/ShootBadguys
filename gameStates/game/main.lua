@@ -8,9 +8,9 @@ local keysPressedThisFrame = {}
 
 local map = mapLib.tiledToTable("map/mapa01.json",true)
 map.collision = {}
-for i,v in ipairs(map.properties[1].value) do
-    print("colisao",v.value)
-    map.collision[i] = v.value
+for i,v in ipairs(map.properties.collision) do
+    print("colisao",v)
+    map.collision[i] = v
 end
 
 print(json.encode(img.tiles.tilemap))
@@ -22,7 +22,7 @@ function checkCollision(x,y)
 
     if tileX < 1 or tileY < 1 or tileX > map.width or tileY > map.height then return true end
 
-    local tile = map.tileAt(tileX, tileY)
+    local tile = map:tileAt(tileX, tileY)
     return tile ~= 0
 end
 
@@ -49,7 +49,7 @@ function raycastAngleMap(_X,_Y,_Angle,_MaxDist)
     while dist <= _MaxDist do
         if tileX < 1 or tileY < 1 or tileX > map.width or tileY > map.height then return nil,nil,_MaxDist end
 
-        local tile = map.tileAt(tileX, tileY)
+        local tile = map:tileAt(tileX, tileY)
         if tile ~= 0 then
             return _X + sx*dist, _Y + sy*dist, dist
         end
@@ -67,6 +67,7 @@ function raycastAngleMap(_X,_Y,_Angle,_MaxDist)
 
     return nil,nil,_MaxDist
 end
+
 local cam = camLib.newCam({
     isCenter = true,
     smooth = true,
@@ -337,10 +338,18 @@ local enemies = {
         size=0.6,
         health=10000,
         weapon = copyOf(WEAPONS.pistol),
-
     },
 }
 
+for i,v in ipairs(map:getLayer(3).objects) do
+    table.insert(enemies,{
+        x = v.x/32,
+        y = v.y/32,
+        size = v.size or 0.6,
+        health = v.properties.health or 10,
+        weapon = copyOf(WEAPONS[v.properties.weapon] or WEAPONS.pistol),
+    })
+end
 
 function checkEnemyCollisions(x,y)
     for i,v in ipairs(enemies) do
@@ -461,14 +470,14 @@ end
 
 
 function drawMap()
-    map.drawTileLayer(1,tileArr,cam)
-    map.drawTileLayer(2,tileArr,cam)
+    map:drawTileLayer(1,tileArr,cam)
+    map:drawTileLayer(2,tileArr,cam)
 end
 
 function thisState.load()
     thisState.resize(love.graphics.getDimensions())
 
-    print("\n\n\n",json.encode(map.getLayer(3).objects))
+    print("\n\n\n",json.encode(map:getLayer(3).objects[1]))
 end 
 
 function thisState.update()
@@ -486,6 +495,7 @@ function thisState.update()
     player:tick()
     keysPressedThisFrame = {}
 end
+
 function thisState.draw()
     drawMap()
     player:draw()
@@ -531,8 +541,8 @@ function thisState.draw()
         tileX = math.floor(gmx)+1,
         tileY = math.floor(gmy)+1,
         collision = tostring(checkCollision(gmx,gmy)),
-        floor = tostring(map.tileAt(1, math.floor(gmx)+1, math.floor(gmy)+1)),
-        wall = tostring(map.tileAt(2, math.floor(gmx)+1, math.floor(gmy)+1)),
+        floor = tostring(map:tileAt(1, math.floor(gmx)+1, math.floor(gmy)+1)),
+        wall = tostring(map:tileAt(2, math.floor(gmx)+1, math.floor(gmy)+1)),
     })
         
 
