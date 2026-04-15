@@ -39,6 +39,10 @@ end
 
 
 function copyOf(_Table, maxDepth, currentDepth)
+    if type(_Table) ~= "table" then
+        return _Table
+    end
+
     maxDepth = maxDepth or 5
     currentDepth = currentDepth or 0
     if maxDepth and currentDepth >= maxDepth then

@@ -70,6 +70,7 @@ local function _collapseProperty(property)
 end
 
 local function _collapseArrayProperties(properties)
+    print("colapsando array de propiedades",json.encode(properties))
     local collapsed = {}
     for i,v in ipairs(properties) do
         local name, value = _collapseProperty(v)
@@ -107,8 +108,13 @@ function API.tiledToTable(file,doAddFunctions)
             --print("Object group found, skipping for now",v.name)
 
             for ii,vv in ipairs(v.objects) do
-                vv.data = copyOf(vv.properties)
-                vv.properties = _collapseArrayProperties(vv.properties)
+                if vv.properties then
+                    vv.data = copyOf(vv.properties)
+                    vv.properties = _collapseArrayProperties(vv.properties)
+                else
+                    vv.properties = {}
+                    vv.data = {}
+                end
             end
         end
     end
@@ -184,6 +190,29 @@ function API.tiledToTable(file,doAddFunctions)
 
             return layer.tiles[y][x]
         end
+
+        table.searchForObject = function(self, layer, typeOrId, doReturnAll)
+            doReturnAll = doReturnAll or false
+            local layerObj = self:getLayer(layer)
+            if not layerObj or layerObj.type ~= "objectgroup" then
+                error(strJoin("Layer not found or not an object group: ", tostring(layer)))
+            end
+
+            local foundObjects = {}
+            for i,v in ipairs(layerObj.objects) do
+                if (type(typeOrId) == "number" and v.id == typeOrId) or (type(typeOrId) == "string" and v.type == typeOrId) then
+                    if doReturnAll then
+                        table.insert(foundObjects, v)
+                    else
+                        return v
+                    end
+                end
+
+            end
+
+            return doReturnAll and foundObjects or nil
+        end
+
     end
 
 

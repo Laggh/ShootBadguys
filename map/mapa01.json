@@ -234,7 +234,7 @@
                 {
                  "height":0,
                  "id":16,
-                 "name":"Enemy",
+                 "name":"enemy",
                  "opacity":1,
                  "point":true,
                  "properties":[
@@ -249,11 +249,24 @@
                          "value":"pistol"
                         }],
                  "rotation":0,
-                 "type":"Enemy",
+                 "type":"enemy",
                  "visible":true,
                  "width":0,
                  "x":300.5,
                  "y":92.5
+                }, 
+                {
+                 "height":0,
+                 "id":24,
+                 "name":"",
+                 "opacity":1,
+                 "point":true,
+                 "rotation":0,
+                 "type":"playerStart",
+                 "visible":true,
+                 "width":0,
+                 "x":451,
+                 "y":163
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -262,7 +275,7 @@
          "y":0
         }],
  "nextlayerid":7,
- "nextobjectid":20,
+ "nextobjectid":25,
  "orientation":"orthogonal",
  "properties":[
         {

@@ -5,16 +5,9 @@ local WEAPONS = require("gamestates/game/weapons")
 
 sin,cos = math.sin, math.cos
 local keysPressedThisFrame = {}
+local map = {}
+local tileArr = {}
 
-local map = mapLib.tiledToTable("map/mapa01.json",true)
-map.collision = {}
-for i,v in ipairs(map.properties.collision) do
-    print("colisao",v)
-    map.collision[i] = v
-end
-
-print(json.encode(img.tiles.tilemap))
-local tileArr = mapLib.tilesetToArray(img.tiles.tilemap,32,32)
 
 function checkCollision(x,y)
     local tileX = math.floor(x)+1
@@ -73,8 +66,17 @@ local cam = camLib.newCam({
     smooth = true,
 })
 
+local player = {}
 
-local player = {
+function loadPlayer() 
+local startPosObj = map:searchForObject(3,"playerStart")
+if not startPosObj then
+    error("Player start position not found in map! Please add an object with type 'playerStart' in layer 3.")
+end
+local startX = startPosObj.x / 32
+local startY = startPosObj.y / 32
+
+player = {
     health = 100,
 
     selectedWeapon = 1,
@@ -82,8 +84,8 @@ local player = {
         copyOf(WEAPONS.pistol),
         copyOf(WEAPONS.smg),
     },
-    x = 1.5,
-    y = 1.5,
+    x = startX,
+    y = startY,
     sx = 0,
     sy = 0,
     speed = 0.1,
@@ -326,29 +328,23 @@ local player = {
         end
     end,
 
-}
-
+} 
+end
 
 
 local projectiles = {}
 
-local enemies = {
-    {
-        x=25,y=25,
-        size=0.6,
-        health=10000,
-        weapon = copyOf(WEAPONS.pistol),
-    },
-}
+local enemies = {}
 
-for i,v in ipairs(map:getLayer(3).objects) do
-    table.insert(enemies,{
-        x = v.x/32,
-        y = v.y/32,
-        size = v.size or 0.6,
-        health = v.properties.health or 10,
-        weapon = copyOf(WEAPONS[v.properties.weapon] or WEAPONS.pistol),
-    })
+function loadMap()
+    map = mapLib.tiledToTable("map/mapa01.json",true)
+    map.collision = {}
+    for i,v in ipairs(map.properties.collision) do
+        print("colisao",v)
+        map.collision[i] = v
+    end
+
+    tileArr = mapLib.tilesetToArray(img.tiles.tilemap,32,32)
 end
 
 function checkEnemyCollisions(x,y)
@@ -359,8 +355,6 @@ function checkEnemyCollisions(x,y)
     end
     return nil
 end
-
-
 
 function batchCreateProjectiles(_Amount,_X,_Y,_Dir,_Speed,_DirSpread,_SpeedSpread,_Data)
     _DirSpread = _DirSpread or 0
@@ -428,6 +422,20 @@ function drawProjectiles()
     end 
 end
 
+function loadEnemies()
+    for i,v in ipairs(map:getLayer(3).objects) do
+        if v.type == "enemy" then
+            table.insert(enemies,{
+                x = v.x/32,
+                y = v.y/32,
+                size = 0.6,
+                health = v.properties.health or 100,
+                weapon = copyOf(WEAPONS[v.properties.weapon] or WEAPONS.pistol),
+            })
+        end
+    end
+end
+
 function runEnemies()
     for i,v in ipairs(enemies) do
         
@@ -476,8 +484,9 @@ end
 
 function thisState.load()
     thisState.resize(love.graphics.getDimensions())
-
-    print("\n\n\n",json.encode(map:getLayer(3).objects[1]))
+    loadMap()
+    loadEnemies()
+    loadPlayer()
 end 
 
 function thisState.update()
