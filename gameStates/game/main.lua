@@ -58,7 +58,29 @@ function raycastAngleMap(_X,_Y,_Angle,_MaxDist)
         end
     end
 
-    return nil,nil,_MaxDist
+    return nil,nil,-1
+end
+
+function raycastAngleTable(_X,_Y,_Angle,_MaxDist,_Table)
+    local x,y = _X,_Y
+    local sx,sy = cos(_Angle), sin(_Angle)
+    local stepSize = 0.1
+    local dist = 0
+
+    while dist <= _MaxDist do
+        x = x + sx * stepSize
+        y = y + sy * stepSize
+
+        for i,v in ipairs(_Table) do
+            if math.getDistance(x,y,v.x,v.y) < v.size/2 then
+                return x,y,dist,i
+            end
+        end
+
+        dist = dist + stepSize
+    end
+
+    return nil,nil,-1,nil
 end
 
 local cam = camLib.newCam({
@@ -89,6 +111,7 @@ player = {
     sx = 0,
     sy = 0,
     speed = 0.1,
+    size = 0.4,
 
     spread = 0,
     getSpread = function (self)
@@ -394,14 +417,24 @@ function runProjectiles()
         if v.t > 300 or checkCollision(v.x,v.y) then
             table.remove(projectiles,i)
         end
-        local enemyHit = checkEnemyCollisions(v.x,v.y)
-        if enemyHit then
-            local enemy = enemies[enemyHit]
-            enemy.health = enemy.health - v.data.damage
-            if enemy.health <= 0 then
-                table.remove(enemies, enemyHit)
+        if v.data.team == "player" then
+            local enemyHit = checkEnemyCollisions(v.x,v.y)
+            if enemyHit then
+                local enemy = enemies[enemyHit]
+                enemy.health = enemy.health - v.data.damage
+                if enemy.health <= 0 then
+                    table.remove(enemies, enemyHit)
+                end
+                table.remove(projectiles,i)
             end
-            table.remove(projectiles,i)
+        end
+
+        if v.data.team == "enemy" then
+            local distToPlayer = math.getDistance(v.x,v.y,player.x,player.y)
+            if distToPlayer < player.size/2 then
+                player.health = player.health - v.data.damage
+                table.remove(projectiles,i)
+            end
         end
     end
 end
@@ -431,19 +464,98 @@ function loadEnemies()
     for i,v in ipairs(map:searchForObject(3,"enemy",true)) do
         if v.type == "enemy" then
             table.insert(enemies,{
+                t=0,
                 x = v.x/32,
                 y = v.y/32,
                 size = 0.6,
                 health = v.properties.health or 100,
+
+                alertPercentage = 0, -- 0 to 1, 1 - atirando
+                visionRange = v.properties.visionRange or 50,
+                visionCone = v.properties.visionCone or math.pi*2,
+                direction = v.properties.direction or 0,
+
+                _StoredRaycastResult = nil,
                 weapon = copyOf(WEAPONS[v.properties.weapon] or WEAPONS.pistol),
+
+                raycastCheck = function (self)
+                    local angleToPlayer = math.getAngle(self.x,self.y,player.x,player.y)
+                    local distToPlayer = math.getDistance(self.x,self.y,player.x,player.y)
+                    
+                    local rx,ry,rayDist = raycastAngleMap(self.x,self.y,angleToPlayer,self.visionRange)
+                    
+                    local raycastResult = self._StoredRaycastResult or {}
+                    if rayDist < distToPlayer or rayDist == -1 then
+                            raycastResult.playerVisible = false
+                    else
+                            raycastResult.playerVisible = true
+                            raycastResult.position = {rx,ry}
+                            raycastResult.angleToPlayer = angleToPlayer
+                            raycastResult.distToPlayer = distToPlayer
+                    end  
+                    self._StoredRaycastResult = raycastResult
+                    
+                    local FRAMES_PER_RAYCAST = 5
+                    local increaseAlertAmount = 0.01 * FRAMES_PER_RAYCAST
+                    if self._StoredRaycastResult.playerVisible then
+                        self.alertPercentage = math.min(2, self.alertPercentage + increaseAlertAmount)
+                    else
+                        self.alertPercentage = math.max(0, self.alertPercentage - increaseAlertAmount)
+                    end    
+                end,
+
+                shoot = function(self, angle)
+                    if not self._StoredRaycastResult then return end
+
+                    local angle = self._StoredRaycastResult.angleToPlayer
+                    local projectileData = {
+                        team = "enemy",
+                        damage = math.floor(self.weapon.damage / 2),
+                    }
+                    batchCreateProjectiles(1,self.x,self.y,angle,self.weapon.projectileSpeed/2,self.weapon.spread*2,0,projectileData)
+                end,
+                
+                --[[
+                    TODO():
+                    - melhorar o sistema de alerta
+                    - fazer os bots andares
+                    - adicionar mais função nos bots
+                    - fazer os bots terem sistema de input tipo o player, facilitando tudo no futuro
+                    - pensar numa maneira de botar a logica de cada coisa em um arquivo
+                    talvez um objeto `game` onde fica tudo, acho interessante
+                    - funções `:onXXXXX` para as coisas
+
+                    - suporte para touch e controle
+                        - mudar a mira do mouse para um sistema que aceita ou mouse ou {x,y}
+
+
+                    - talvez adicionar suporte para modelos, deve ser chato mas talvez eu adicione
+                ]]
+                
+                
+
+
             })
         end
     end
 end
 
 function runEnemies()
+    local FRAMES_PER_RAYCAST = 5
     for i,v in ipairs(enemies) do
-        
+        v.t = v.t + 1
+        local doRaycastCheck = v.t % FRAMES_PER_RAYCAST == 0
+        v:raycastCheck()
+
+        if v.alertPercentage >= 1 then
+            local angleToPlayer = v._StoredRaycastResult.angleToPlayer
+            local distToPlayer = v._StoredRaycastResult.distToPlayer
+
+            if v.t % 4 == 0 then
+                v:shoot(angleToPlayer)
+            end
+        end
+    
     end
 end
 
@@ -452,7 +564,14 @@ function drawEnemies()
         local x,y = toScreen(v.x,v.y)
         withColor(1,0,0,1,function ()
             love.graphics.circle("fill",x,y,cam.scale*v.size/2)
+
+            if v._StoredRaycastResult and v._StoredRaycastResult.playerVisible then
+                local endX,endY = toScreen(player.x,player.y)
+                love.graphics.line(x,y,endX,endY)
+            end
         end)
+
+        love.graphics.print(v.alertPercentage,x,y)
     end
 end
 
@@ -507,6 +626,8 @@ function thisState.update()
     cam:tick()
     runProjectiles()
     player:tick()
+    runEnemies()
+
     keysPressedThisFrame = {}
 end
 
@@ -527,7 +648,8 @@ function thisState.draw()
         aim = tostring(player.input.aim),
     })
     local w,h = love.graphics.getDimensions()
-    str = str..string.interpolate("\nPlayer:\n x: ${x}\n y: ${y}\n sx: ${sx}\n sy: ${sy}\n isGrounded: ${isGrounded}\n isAiming: ${isAiming}\n shootCooldown: ${shootCooldown}\n action: ${action}\n spread: ${spread}\n",{
+    str = str..string.interpolate("\nPlayer:\n hp: ${hp}\n x: ${x}\n y: ${y}\n sx: ${sx}\n sy: ${sy}\n isGrounded: ${isGrounded}\n isAiming: ${isAiming}\n shootCooldown: ${shootCooldown}\n action: ${action}\n spread: ${spread}\n",{
+        hp = player.health,
         x = player.x,
         y = player.y,
         sx = player.sx,
