@@ -607,6 +607,14 @@ function drawMap()
 end
 
 function thisState.load()
+    cursorDotCanv = love.graphics.newCanvas(2,2)
+    cursorDotCanv:renderTo(function ()
+        withColor(1,1,1,1,function ()
+            love.graphics.rectangle("fill",0,0,2,2)
+        end)
+    end)
+    love.mouse.setCursor(love.mouse.newCursor(cursorDotCanv:newImageData(), 1, 1))
+
     thisState.resize(love.graphics.getDimensions())
     loadMap()
     loadEnemies()
