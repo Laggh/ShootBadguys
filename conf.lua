@@ -7,3 +7,9 @@ function love.conf(t)
     t.window.vsync = true
     t.window.resizable = true
 end
+
+function love.expandedConf(t)
+    t.updateSync = true
+    t.maxUpdatesInRow = 2
+    t.updateSyncFPS = 75
+end

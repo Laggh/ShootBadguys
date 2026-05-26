@@ -54,7 +54,19 @@ end
 
 function love.update(dt)
     if not currentGameState.update then return end
-    currentGameState.update(dt)
+
+    if love.expanded.config.updateSync and love.expanded.config.updateSyncFPS then
+        local timePerUpdate = 1 / love.expanded.config.updateSyncFPS
+        for i=1,love.expanded.config.maxUpdatesInRow or 1 do
+            local timeSinceLastUpdate = love.timer.getTime() - love.expanded.timeAtLastUpdate
+            if timeSinceLastUpdate < timePerUpdate then
+                return
+            end
+            love.expanded.timeAtLastUpdate = love.expanded.timeAtLastUpdate + timePerUpdate
+            currentGameState.update(dt)
+        end
+    end
+
 end
 
 function love.draw()

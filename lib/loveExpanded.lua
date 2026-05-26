@@ -246,6 +246,12 @@ font = {
     }
 }
 
+--LOVE EXPANDED OBJECT
+love.expanded = love.expanded or {}
+love.expanded.config = love.expanded.config or {}
+love.expanded.timeAtLastUpdate = love.timer.getTime()
+love.expandedConf(love.expanded.config)
+
 print(json.encode(img))
 
 
