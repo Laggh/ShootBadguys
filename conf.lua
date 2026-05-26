@@ -3,7 +3,8 @@
 function love.conf(t)
     t.window.width = 800
     t.window.height = 600
-    t.window.title = "Love Expanded"
+    t.identity = "ShootBadGuys"
+    t.window.title = "ShootBadGuys"
     t.window.vsync = true
     t.window.resizable = true
 end
