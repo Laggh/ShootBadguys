@@ -10,10 +10,11 @@ local function getPlayer(game)
 
     local player = {
         health = 100,
+        maxHealth = 100,
 
         selectedWeapon = 1,
         weapons = {
-            copyOf(WEAPONS.pistol),
+            copyOf(WEAPONS.shotgun),
             copyOf(WEAPONS.smg),
         },
         x = startX,

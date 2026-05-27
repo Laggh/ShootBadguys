@@ -53,19 +53,32 @@ function love.load()
 end
 
 function love.update(dt)
-    if not currentGameState.update then return end
+    if not currentGameState.update then 
+        love.expanded.timeAtLastUpdate = love.timer.getTime()
+        return
+    end
+    
 
     if love.expanded.config.updateSync and love.expanded.config.updateSyncFPS then
         local timePerUpdate = 1 / love.expanded.config.updateSyncFPS
+        --local framesRan = 0
         for i=1,love.expanded.config.maxUpdatesInRow or 1 do
             local timeSinceLastUpdate = love.timer.getTime() - love.expanded.timeAtLastUpdate
+
             if timeSinceLastUpdate < timePerUpdate then
+                --print("frames",framesRan)
                 return
             end
             love.expanded.timeAtLastUpdate = love.expanded.timeAtLastUpdate + timePerUpdate
             currentGameState.update(dt)
+            --framesRan = framesRan + 1
         end
+        --print("frames",framesRan)
+    else
+        currentGameState.update(dt)
     end
+
+
 
 end
 
