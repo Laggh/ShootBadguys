@@ -5,7 +5,10 @@ local WEAPONS = require("gamestates/game/weapons")
 
 sin,cos = math.sin, math.cos
 local keysPressedThisFrame = {}
-local map = {}
+
+local game = {}
+
+game.map = {}
 local tileArr = {}
 
 
@@ -13,9 +16,9 @@ function checkCollision(x,y)
     local tileX = math.floor(x)+1
     local tileY = math.floor(y)+1
 
-    if tileX < 1 or tileY < 1 or tileX > map.width or tileY > map.height then return true end
+    if tileX < 1 or tileY < 1 or tileX > game.map.width or tileY > game.map.height then return true end
 
-    local tile = map:tileAt(tileX, tileY)
+    local tile = game.map:tileAt(tileX, tileY)
     return tile ~= 0
 end
 
@@ -40,9 +43,9 @@ function raycastAngleMap(_X,_Y,_Angle,_MaxDist)
     local dist = 0
 
     while dist <= _MaxDist do
-        if tileX < 1 or tileY < 1 or tileX > map.width or tileY > map.height then return nil,nil,_MaxDist end
+        if tileX < 1 or tileY < 1 or tileX > game.map.width or tileY > game.map.height then return nil,nil,_MaxDist end
 
-        local tile = map:tileAt(tileX, tileY)
+        local tile = game.map:tileAt(tileX, tileY)
         if tile ~= 0 then
             return _X + sx*dist, _Y + sy*dist, dist
         end
@@ -88,17 +91,17 @@ local cam = camLib.newCam({
     smooth = true,
 })
 
-local player = {}
+game.player = {}
 
 function loadPlayer() 
-local startPosObj = map:searchForObject(3,"playerStart")
+local startPosObj = game.map:searchForObject(3,"playerStart")
 if not startPosObj then
-    error("Player start position not found in map! Please add an object with type 'playerStart' in layer 3.")
+    error("Player start position not found in game.map! Please add an object with type 'playerStart' in layer 3.")
 end
 local startX = startPosObj.x / 32
 local startY = startPosObj.y / 32
 
-player = {
+game.player = {
     health = 100,
 
     selectedWeapon = 1,
@@ -358,24 +361,24 @@ player = {
 } 
 end
 
+print(json.encode(game.player))
 
-local projectiles = {}
-
-local enemies = {}
+game.projectiles = {}
+game.enemies = {}
 
 function loadMap()
-    map = mapLib.tiledToTable("map/mapa01.json",true)
-    map.collision = {}
-    for i,v in ipairs(map.properties.collision) do
+    game.map = mapLib.tiledToTable("map/mapa01.json",true)
+    game.map.collision = {}
+    for i,v in ipairs(game.map.properties.collision) do
         print("colisao",v)
-        map.collision[i] = v
+        game.map.collision[i] = v
     end
 
     tileArr = mapLib.tilesetToArray(img.tiles.tilemap,32,32)
 end
 
 function checkEnemyCollisions(x,y)
-    for i,v in ipairs(enemies) do
+    for i,v in ipairs(game.enemies) do
         if math.getDistance(x,y,v.x,v.y) < v.size/2 then
             return i
         end
@@ -404,36 +407,37 @@ function newProjectile(_X,_Y,_Dir,_Speed,_Data)
         data = _Data or {},
     }
 
-    table.insert(projectiles,newProj)
+    table.insert(game.projectiles,newProj)
 end
 function runProjectiles()
-    for i = #projectiles,1,-1 do
-        v = projectiles[i]
+    for i = #game.projectiles,1,-1 do
+        v = game.projectiles[i]
         v.x = v.x + (cos(v.dir) * v.speed)
         v.y = v.y + (sin(v.dir) * v.speed)
         v.t = v.t + 1
 
         
         if v.t > 300 or checkCollision(v.x,v.y) then
-            table.remove(projectiles,i)
+            table.remove(game.projectiles,i)
         end
         if v.data.team == "player" then
             local enemyHit = checkEnemyCollisions(v.x,v.y)
             if enemyHit then
-                local enemy = enemies[enemyHit]
+                local enemy = game.enemies[enemyHit]
                 enemy.health = enemy.health - v.data.damage
                 if enemy.health <= 0 then
-                    table.remove(enemies, enemyHit)
+                    table.remove(game.enemies, enemyHit)
                 end
-                table.remove(projectiles,i)
+                table.remove(game.projectiles,i)
             end
         end
 
+
         if v.data.team == "enemy" then
-            local distToPlayer = math.getDistance(v.x,v.y,player.x,player.y)
-            if distToPlayer < player.size/2 then
-                player.health = player.health - v.data.damage
-                table.remove(projectiles,i)
+            local distToPlayer = math.getDistance(v.x,v.y,game.player.x,game.player.y)
+            if distToPlayer < game.player.size/2 then
+                game.player.health = game.player.health - v.data.damage
+                table.remove(game.projectiles,i)
             end
         end
     end
@@ -442,7 +446,7 @@ end
 function drawProjectiles()
     local projectileFxSize = 1
 
-    for i,v in ipairs(projectiles) do
+    for i,v in ipairs(game.projectiles) do
         local x,y = toScreen(v.x,v.y)
 
         --efeito pra impedir a linha do tiro ficar atras do personagem qnd ele atira
@@ -461,9 +465,9 @@ function drawProjectiles()
 end
 
 function loadEnemies()
-    for i,v in ipairs(map:searchForObject(3,"enemy",true)) do
+    for i,v in ipairs(game.map:searchForObject(3,"enemy",true)) do
         if v.type == "enemy" then
-            table.insert(enemies,{
+            table.insert(game.enemies,{
                 t=0,
                 x = v.x/32,
                 y = v.y/32,
@@ -479,8 +483,8 @@ function loadEnemies()
                 weapon = copyOf(WEAPONS[v.properties.weapon] or WEAPONS.pistol),
 
                 raycastCheck = function (self)
-                    local angleToPlayer = math.getAngle(self.x,self.y,player.x,player.y)
-                    local distToPlayer = math.getDistance(self.x,self.y,player.x,player.y)
+                    local angleToPlayer = math.getAngle(self.x,self.y,game.player.x,game.player.y)
+                    local distToPlayer = math.getDistance(self.x,self.y,game.player.x,game.player.y)
                     
                     local rx,ry,rayDist = raycastAngleMap(self.x,self.y,angleToPlayer,self.visionRange)
                     
@@ -521,7 +525,7 @@ function loadEnemies()
                     - fazer os bots andares
                     - adicionar mais função nos bots
                     - fazer os bots terem sistema de input tipo o player, facilitando tudo no futuro
-                    - pensar numa maneira de botar a logica de cada coisa em um arquivo
+                    -> pensar numa maneira de botar a logica de cada coisa em um arquivo
                     talvez um objeto `game` onde fica tudo, acho interessante
                     - funções `:onXXXXX` para as coisas
 
@@ -542,7 +546,7 @@ end
 
 function runEnemies()
     local FRAMES_PER_RAYCAST = 5
-    for i,v in ipairs(enemies) do
+    for i,v in ipairs(game.enemies) do
         v.t = v.t + 1
         local doRaycastCheck = v.t % FRAMES_PER_RAYCAST == 0
         v:raycastCheck()
@@ -560,13 +564,13 @@ function runEnemies()
 end
 
 function drawEnemies()
-    for i,v in ipairs(enemies) do
+    for i,v in ipairs(game.enemies) do
         local x,y = toScreen(v.x,v.y)
         withColor(1,0,0,1,function ()
             love.graphics.circle("fill",x,y,cam.scale*v.size/2)
 
             if v._StoredRaycastResult and v._StoredRaycastResult.playerVisible then
-                local endX,endY = toScreen(player.x,player.y)
+                local endX,endY = toScreen(game.player.x,game.player.y)
                 love.graphics.line(x,y,endX,endY)
             end
         end)
@@ -586,8 +590,8 @@ end
 
 function drawCrosshair()
     local mx,my = love.mouse.getPosition()
-    local opening = (player:getSpread()*3)^3 * 15 + 3
-    if player:getSpread() < 0.1 then opening = 1 end
+    local opening = (game.player:getSpread()*3)^3 * 15 + 3
+    if game.player:getSpread() < 0.1 then opening = 1 end
 
     local length = 5
 
@@ -602,8 +606,8 @@ end
 
 
 function drawMap()
-    map:drawTileLayer(1,tileArr,cam)
-    map:drawTileLayer(2,tileArr,cam)
+    game.map:drawTileLayer(1,tileArr,cam)
+    game.map:drawTileLayer(2,tileArr,cam)
 end
 
 function thisState.load()
@@ -626,14 +630,14 @@ function thisState.update()
     
 
     local mouseWeight = 0.5
-    if player.isAiming then mouseWeight = 1.2 end
+    if game.player.isAiming then mouseWeight = 1.2 end
     cam:setTargets({
-        {x=player.x, y=player.y, weight=1},
+        {x=game.player.x, y=game.player.y, weight=1},
         {x=gmx, y=gmy, weight=mouseWeight},
     })
     cam:tick()
     runProjectiles()
-    player:tick()
+    game.player:tick()
     runEnemies()
 
     keysPressedThisFrame = {}
@@ -641,7 +645,7 @@ end
 
 function thisState.draw()
     drawMap()
-    player:draw()
+    game.player:draw()
     drawProjectiles()
     drawCrosshair()
     drawEnemies()
@@ -649,35 +653,35 @@ function thisState.draw()
     str = tostring(love.timer.getFPS()).."\n"
 
     str = str..string.interpolate("Input:\n move: ${move1}, ${move2}\n dash: ${dash}\n shoot: ${shoot}\n aim: ${aim}\n",{
-        move1 = player.input.move[1],
-        move2 = player.input.move[2],
-        dash = tostring(player.input.dash),
-        shoot = tostring(player.input.shoot),
-        aim = tostring(player.input.aim),
+        move1 = game.player.input.move[1],
+        move2 = game.player.input.move[2],
+        dash = tostring(game.player.input.dash),
+        shoot = tostring(game.player.input.shoot),
+        aim = tostring(game.player.input.aim),
     })
     local w,h = love.graphics.getDimensions()
     str = str..string.interpolate("\nPlayer:\n hp: ${hp}\n x: ${x}\n y: ${y}\n sx: ${sx}\n sy: ${sy}\n isGrounded: ${isGrounded}\n isAiming: ${isAiming}\n shootCooldown: ${shootCooldown}\n action: ${action}\n spread: ${spread}\n",{
-        hp = player.health,
-        x = player.x,
-        y = player.y,
-        sx = player.sx,
-        sy = player.sy,
-        isGrounded = tostring(player.isGrounded),
-        isAiming = tostring(player.isAiming),
-        shootCooldown = tostring(player.shootCooldown),
-        action = player.currentAction,
-        spread = tostring(player:getSpread()),
+        hp = game.player.health,
+        x = game.player.x,
+        y = game.player.y,
+        sx = game.player.sx,
+        sy = game.player.sy,
+        isGrounded = tostring(game.player.isGrounded),
+        isAiming = tostring(game.player.isAiming),
+        shootCooldown = tostring(game.player.shootCooldown),
+        action = game.player.currentAction,
+        spread = tostring(game.player:getSpread()),
         camScale = tostring(cam.scale),
         xTiles = tostring(w / cam.scale),
         yTiles = tostring(h / cam.scale),
     })
 
     str = str..string.interpolate("\nWeapons:\n selected: ${selected}\n ammo: ${ammo}/${maxAmmo}\n backupAmmo: ${backupAmmo}/${maxBackupAmmo}",{
-        selected = player.weapons[player.selectedWeapon].name,
-        ammo = player.weapons[player.selectedWeapon].ammo,
-        maxAmmo = player.weapons[player.selectedWeapon].maxAmmo,
-        backupAmmo = player.weapons[player.selectedWeapon].backupAmmo,
-        maxBackupAmmo = player.weapons[player.selectedWeapon].maxBackupAmmo,
+        selected = game.player.weapons[game.player.selectedWeapon].name,
+        ammo = game.player.weapons[game.player.selectedWeapon].ammo,
+        maxAmmo = game.player.weapons[game.player.selectedWeapon].maxAmmo,
+        backupAmmo = game.player.weapons[game.player.selectedWeapon].backupAmmo,
+        maxBackupAmmo = game.player.weapons[game.player.selectedWeapon].maxBackupAmmo,
     })
 
     local gmx,gmy = toGame(love.mouse.getPosition())
@@ -685,8 +689,8 @@ function thisState.draw()
         tileX = math.floor(gmx)+1,
         tileY = math.floor(gmy)+1,
         collision = tostring(checkCollision(gmx,gmy)),
-        floor = tostring(map:tileAt(1, math.floor(gmx)+1, math.floor(gmy)+1)),
-        wall = tostring(map:tileAt(2, math.floor(gmx)+1, math.floor(gmy)+1)),
+        floor = tostring(game.map:tileAt(1, math.floor(gmx)+1, math.floor(gmy)+1)),
+        wall = tostring(game.map:tileAt(2, math.floor(gmx)+1, math.floor(gmy)+1)),
     })
         
 
@@ -695,7 +699,7 @@ end
 
 function thisState.mousepressed(mx,my,mBtn)
     if mBtn == 3 then
-        player.x,player.y = toGame(mx,my)
+        game.player.x,game.player.y = toGame(mx,my)
     end
     keysPressedThisFrame["mouse"..mBtn] = true
 end
